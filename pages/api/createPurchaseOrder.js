@@ -63,13 +63,13 @@ export default async (req, res) => {
     const flow = await createFlow(organization.id, template.id, document, orderData);
     console.log("Flow created:", flow);
 
-    const flowDocuments = await getFlowDocuments(organization.id, template.id, flow.id);
-    console.log("Flow Documents:", flowDocuments);
+    // const flowDocuments = await getFlowDocuments(organization.id, template.id, flow.id);
+    // console.log("Flow Documents:", flowDocuments);
 
-    if (flowDocuments && !(flowDocuments.length === 0)) {
-      const flowDocument = await getFlowDocument(organization.id, template.id, flow.id, flowDocuments[0].id);
-      console.log("Flow Document:", flowDocument);
-    }
+    // if (flowDocuments && !(flowDocuments.length === 0)) {
+    //   const flowDocument = await getFlowDocument(organization.id, template.id, flow.id, flowDocuments[0].id);
+    //   console.log("Flow Document:", flowDocument);
+    // }
 
     // distTemplate
     // const distTemplate = await distributeTemplate(organization.id, template.id);
