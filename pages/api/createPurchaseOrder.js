@@ -17,6 +17,7 @@ import {
 
 export default async (req, res) => {
   const orderData = req.body;
+  console.log("Form Data: ", orderData);
 
   const cookies = req.headers.cookie?.split('; ').reduce((acc, cookie) => {
     const [key, value] = cookie.split('=');
@@ -24,9 +25,17 @@ export default async (req, res) => {
     return acc;
   }, {});
   
+  console.log(cookies);
+
   let organizationId = cookies.organizationId;
   let templateId = cookies.templateId;
   let flowId = cookies.flowId;
+  let roleId = cookies.roleId;
+
+  console.log(organizationId);
+  console.log(templateId);
+  console.log(flowId);
+  console.log(roleId);
 
   try {
     if (!organizationId) {
@@ -43,7 +52,7 @@ export default async (req, res) => {
       res.setHeader('Set-Cookie', `templateId=${templateId}; Path=/; Max-Age=604800`); // 7 days
     }
 
-    let documents = await getDocuments(organization.id, template.id);
+    let documents = await getDocuments(organizationId, templateId);
     console.log("Documents: ", documents);
 
     let document = null;
@@ -53,10 +62,10 @@ export default async (req, res) => {
       );
       
       if (purchaseOrderDoc) {
-        document = await getDocument(organization.id, template.id, purchaseOrderDoc.id);
+        document = await getDocument(organizationId, templateId, purchaseOrderDoc.id);
         console.log("Document: ", document);
       } else {
-        const newDocument = await uploadDocument(organization.id, template.id);
+        const newDocument = await uploadDocument(organizationId, templateId);
         document = newDocument.data;
         console.log("Document uploaded:", document);
       }
@@ -70,7 +79,10 @@ export default async (req, res) => {
     if (!flowId) {
       flow = await createFlow(organizationId, templateId, document, orderData);
       flowId = flow.id;
-      res.setHeader('Set-Cookie', `flowId=${flowId}; Path=/; Max-Age=604800`); // 7 days
+      res.setHeader('Set-Cookie', `flowId=${flowId}; Path=/; Max-Age=604800`);
+
+      roleId = flow.available_roles[0].id;
+      res.setHeader('Set-Cookie', `roleId=${roleId}; Path=/; Max-Age=604800`);
     }
 
     // const flowDocuments = await getFlowDocuments(organization.id, template.id, flow.id);
@@ -89,8 +101,8 @@ export default async (req, res) => {
     
     // distFlow
     let url = "";
-    if (flow) {
-      const distFlow = await distributeFlow(organization.id, template.id, flow.id, flow.available_roles[0].id);
+    if (flowId) {
+      const distFlow = await distributeFlow(organizationId, templateId, flowId, flow.available_roles[0].id);
       console.log("DistFlow data.data: ", distFlow.data.data);
 
       if (distFlow && distFlow.data.data && distFlow.data.data.length > 0) {
