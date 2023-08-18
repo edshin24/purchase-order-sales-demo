@@ -12,8 +12,15 @@ import {
   getFlowDocuments,
   getFlowDocument,
   distributeTemplate,
-  distributeFlow
+  distributeFlow,
+  getFlowLinks
 } from '../../lib/api';
+
+function addCookie(res, name, value) {
+  const previousCookies = res.getHeader('Set-Cookie') || [];
+  const newCookie = `${name}=${value}; Path=/; Max-Age=86400`;
+  res.setHeader('Set-Cookie', [...previousCookies, newCookie]);
+}
 
 export default async (req, res) => {
   const orderData = req.body;
@@ -27,87 +34,102 @@ export default async (req, res) => {
   
   console.log(cookies);
 
-  let organizationId = cookies.organizationId;
-  let templateId = cookies.templateId;
-  let flowId = cookies.flowId;
-  let roleId = cookies.roleId;
-
-  console.log(organizationId);
-  console.log(templateId);
-  console.log(flowId);
-  console.log(roleId);
+  let organizationId = cookies?.organizationId;
+  let templateId = cookies?.templateId;
+  let documentId = cookies?.documentId;
+  let flowId = cookies?.flowId;
+  let roleId = cookies?.roleId;
 
   try {
     if (!organizationId) {
-      const orgResponse = await createOrganization();
-      organizationId = orgResponse.data.id;
-      console.log("Organization created:", orgResponse.data);
-      res.setHeader('Set-Cookie', `organizationId=${organizationId}; Path=/; Max-Age=604800`); // 7 days
+      let organization = await getOrganization();
+
+      if (organization) {
+        console.log("Organization found:", organization);
+      } else {
+        const orgResponse = await createOrganization();
+        organization = orgResponse.data;
+        console.log("Organization created:", organization);
+      }
+
+      organizationId = organization.id;
+      addCookie(res, 'organizationId', organizationId);
     }
 
     if (!templateId) {
-      const template = await createTemplate(organizationId);
-      console.log("Template created:", template);
+      let template = await getTemplate(organizationId);
+    
+      if (template) {
+        console.log("Template found:", template);
+      } else {
+        template = await createTemplate(organizationId);
+        console.log("Template created:", template);
+      }
+  
       templateId = template.id;
-      res.setHeader('Set-Cookie', `templateId=${templateId}; Path=/; Max-Age=604800`); // 7 days
+      addCookie(res, 'templateId', templateId);
     }
 
-    let documents = await getDocuments(organizationId, templateId);
-    console.log("Documents: ", documents);
-
     let document = null;
-    if (documents) {
-      let purchaseOrderDoc = documents.data.find(
-        documentEntry => documentEntry.name === "IT Purchase Order"
-      );
-      
+
+    if (!documentId) {
+      const documents = await getDocuments(organizationId, templateId);
+      console.log("Documents: ", documents);
+
+      let purchaseOrderDoc;
+
+      if (documents) {
+        purchaseOrderDoc = documents.data.find(
+          documentEntry => documentEntry.name === "IT Purchase Order"
+        );
+      }
+
       if (purchaseOrderDoc) {
         document = await getDocument(organizationId, templateId, purchaseOrderDoc.id);
-        console.log("Document: ", document);
+        console.log("Document Found: ", document);
       } else {
         const newDocument = await uploadDocument(organizationId, templateId);
         document = newDocument.data;
-        console.log("Document uploaded:", document);
+        console.log("Document Uploaded:", document);
       }
+      documentId = document.id;
+      addCookie(res, 'documentId', documentId);
+    } else {
+      document = await getDocument(organizationId, templateId, documentId);
+      console.log("Document Found: ", document);
     }
-    
-    // const preFilledResponse = await prefillDocument(organization.id, template.id, document, orderData);
-    // const fields = await fetchDocumentFields(organization.id, template.id, document.id);
-    // console.log("Document fields after pre-filling:", fields);
 
     let flow;
     if (!flowId) {
       flow = await createFlow(organizationId, templateId, document, orderData);
+
       flowId = flow.id;
-      res.setHeader('Set-Cookie', `flowId=${flowId}; Path=/; Max-Age=604800`);
+      addCookie(res, 'flowId', flowId);
 
       roleId = flow.available_roles[0].id;
-      res.setHeader('Set-Cookie', `roleId=${roleId}; Path=/; Max-Age=604800`);
+      console.log("roleId: ", roleId);
+      addCookie(res, 'roleId', roleId);
     }
 
-    // const flowDocuments = await getFlowDocuments(organization.id, template.id, flow.id);
-    // console.log("Flow Documents:", flowDocuments);
-
-    // if (flowDocuments && !(flowDocuments.length === 0)) {
-    //   const flowDocument = await getFlowDocument(organization.id, template.id, flow.id, flowDocuments[0].id);
-    //   console.log("Flow Document:", flowDocument);
-    // }
-
-    // distTemplate
-    // const distTemplate = await distributeTemplate(organization.id, template.id);
-    // console.log("Shareable link generated:", distTemplate.data);
-    // const url = distTemplate.data.urls_embedded['Role 1'];
-    // console.log("Embedded URL: ", url);
-    
-    // distFlow
     let url = "";
     if (flowId) {
-      const distFlow = await distributeFlow(organizationId, templateId, flowId, flow.available_roles[0].id);
-      console.log("DistFlow data.data: ", distFlow.data.data);
+      const flowLinks = await getFlowLinks(organizationId, templateId, flowId);
+      console.log(flowLinks);
 
-      if (distFlow && distFlow.data.data && distFlow.data.data.length > 0) {
-        url = distFlow.data.data[0].url;
-        console.log("Assigned URL:", url);
+      const flowLink = flowLinks.data.find(
+        flowEntry => flowEntry.role_id === roleId
+      );
+
+      url = flowLink.url;
+
+      if (!flowLink) {
+        const distFlow = await distributeFlow(organizationId, templateId, flowId, roleId);
+        console.log("DistFlow data.data: ", distFlow.data.data);
+  
+        if (distFlow && distFlow.data.data && distFlow.data.data.length > 0) {
+          url = distFlow.data.data[0].url;
+          console.log("Assigned URL:", url);
+        }
       }
     }
     
