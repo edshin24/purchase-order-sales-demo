@@ -120,8 +120,6 @@ export default async (req, res) => {
         flowEntry => flowEntry.role_id === roleId
       );
 
-      url = flowLink.url;
-
       if (!flowLink) {
         const distFlow = await distributeFlow(organizationId, templateId, flowId, roleId);
         console.log("DistFlow data.data: ", distFlow.data.data);
@@ -130,6 +128,8 @@ export default async (req, res) => {
           url = distFlow.data.data[0].url;
           console.log("Assigned URL:", url);
         }
+      } else {
+        url = flowLink.url;
       }
     }
     
