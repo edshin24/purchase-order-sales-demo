@@ -1,4 +1,8 @@
-import axios from 'axios';
+import {
+  getCache,
+  setCache,
+  clearCache
+} from '../../lib/cache';
 
 import {
   getOrganization,
@@ -16,29 +20,21 @@ import {
   getFlowLinks
 } from '../../lib/api';
 
-function addCookie(res, name, value) {
-  const previousCookies = res.getHeader('Set-Cookie') || [];
-  const newCookie = `${name}=${value}; Path=/; Max-Age=86400; Secure`;
-  res.setHeader('Set-Cookie', [...previousCookies, newCookie]);
-}
-
 export default async (req, res) => {
   const orderData = req.body;
   console.log("Form Data: ", orderData);
 
-  const cookies = req.headers.cookie?.split('; ').reduce((acc, cookie) => {
-    const [key, value] = cookie.split('=');
-    acc[key] = value;
-    return acc;
-  }, {});
-  
-  console.log(cookies);
+  let organizationId = getCache('organizationId');
+  let templateId = getCache('templateId');
+  let documentId = getCache('documentId');
+  let flowId = getCache('flowId');
+  let roleId = getCache('roleId');
 
-  let organizationId = cookies?.organizationId;
-  let templateId = cookies?.templateId;
-  let documentId = cookies?.documentId;
-  let flowId = cookies?.flowId;
-  let roleId = cookies?.roleId;
+  console.log("organizationId: ", organizationId);
+  console.log("templateId: ", templateId);
+  console.log("documentId: ", documentId);
+  console.log("flowId: ", flowId);
+  console.log("roleId: ", roleId);
 
   try {
     if (!organizationId) {
@@ -53,7 +49,7 @@ export default async (req, res) => {
       }
 
       organizationId = organization.id;
-      addCookie(res, 'organizationId', organizationId);
+      setCache('organizationId', organizationId);
     }
 
     if (!templateId) {
@@ -67,7 +63,7 @@ export default async (req, res) => {
       }
   
       templateId = template.id;
-      addCookie(res, 'templateId', templateId);
+      setCache('templateId', templateId);
     }
 
     let document = null;
@@ -93,10 +89,12 @@ export default async (req, res) => {
         console.log("Document Uploaded:", document);
       }
       documentId = document.id;
-      addCookie(res, 'documentId', documentId);
+      setCache('documentId', documentId);
     } else {
-      document = await getDocument(organizationId, templateId, documentId);
-      console.log("Document Found: ", document);
+      if (!flowId) {
+        document = await getDocument(organizationId, templateId, documentId);
+        console.log("Document Found: ", document);
+      }
     }
 
     let flow;
@@ -104,11 +102,11 @@ export default async (req, res) => {
       flow = await createFlow(organizationId, templateId, document, orderData);
 
       flowId = flow.id;
-      addCookie(res, 'flowId', flowId);
+      setCache('flowId', flowId);
 
       roleId = flow.available_roles[0].id;
       console.log("roleId: ", roleId);
-      addCookie(res, 'roleId', roleId);
+      setCache('roleId', roleId);
     }
 
     let url = "";

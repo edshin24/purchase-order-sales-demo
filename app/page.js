@@ -87,6 +87,20 @@ export default function PurchaseOrder() {
     setSearchInput('');
   };
   
+  const resetFlowCache = async () => {
+    try {
+      const response = await fetch('/api/resetFlow', {
+        method: 'POST',
+      });
+  
+      const responseData = await response.json();
+      setToastMessage(responseData.message);
+    } catch (error) {
+      console.error("Error resetting flow:", error);
+      setToastMessage("Error resetting the flow.");
+    }
+  };
+
   // To auto-hide the toast after a certain duration (e.g., 3 seconds)
   useEffect(() => {
     if (toastMessage) {
@@ -333,7 +347,14 @@ export default function PurchaseOrder() {
           </table>
         )}
 
-      <div className="mt-6">
+      <div className="flex justify-between mt-6">
+        <button
+          type="button"
+          onClick={resetFlowCache}
+          className="px-4 py-2 mr-4 border-2 border-red-500 text-red-500 hover:bg-red-100 rounded-md focus:outline-none focus:bg-red-100 focus:text-red-600"
+        >
+          Reset&nbsp;Flow
+        </button>
         <input 
           type="submit" 
           value={isLoading ? "Submitting..." : "Submit Purchase Order"} 
