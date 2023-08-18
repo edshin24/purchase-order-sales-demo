@@ -18,23 +18,29 @@ import {
 export default async (req, res) => {
   const orderData = req.body;
 
-  try {
-    let organization = await getOrganization();
+  const cookies = req.headers.cookie?.split('; ').reduce((acc, cookie) => {
+    const [key, value] = cookie.split('=');
+    acc[key] = value;
+    return acc;
+  }, {});
+  
+  let organizationId = cookies.organizationId;
+  let templateId = cookies.templateId;
+  let flowId = cookies.flowId;
 
-    if (organization) {
-      console.log("Organization found:", organization);
-    } else {
+  try {
+    if (!organizationId) {
       const orgResponse = await createOrganization();
-      organization = orgResponse.data;
-      console.log("Organization created:", organization);
-    }    
-    let template = await getTemplate(organization.id);
-    
-    if (template) {
-      console.log("Template found:", template);
-    } else {
-      template = await createTemplate(organization.id);
+      organizationId = orgResponse.data.id;
+      console.log("Organization created:", orgResponse.data);
+      res.setHeader('Set-Cookie', `organizationId=${organizationId}; Path=/; Max-Age=604800`); // 7 days
+    }
+
+    if (!templateId) {
+      const template = await createTemplate(organizationId);
       console.log("Template created:", template);
+      templateId = template.id;
+      res.setHeader('Set-Cookie', `templateId=${templateId}; Path=/; Max-Age=604800`); // 7 days
     }
 
     let documents = await getDocuments(organization.id, template.id);
@@ -60,8 +66,12 @@ export default async (req, res) => {
     // const fields = await fetchDocumentFields(organization.id, template.id, document.id);
     // console.log("Document fields after pre-filling:", fields);
 
-    const flow = await createFlow(organization.id, template.id, document, orderData);
-    console.log("Flow created:", flow);
+    let flow;
+    if (!flowId) {
+      flow = await createFlow(organizationId, templateId, document, orderData);
+      flowId = flow.id;
+      res.setHeader('Set-Cookie', `flowId=${flowId}; Path=/; Max-Age=604800`); // 7 days
+    }
 
     // const flowDocuments = await getFlowDocuments(organization.id, template.id, flow.id);
     // console.log("Flow Documents:", flowDocuments);
