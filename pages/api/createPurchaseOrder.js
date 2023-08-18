@@ -18,7 +18,7 @@ import {
 
 function addCookie(res, name, value) {
   const previousCookies = res.getHeader('Set-Cookie') || [];
-  const newCookie = `${name}=${value}; Path=/; Max-Age=86400`;
+  const newCookie = `${name}=${value}; Path=/; Max-Age=86400; Secure`;
   res.setHeader('Set-Cookie', [...previousCookies, newCookie]);
 }
 
