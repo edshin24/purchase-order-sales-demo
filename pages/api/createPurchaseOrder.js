@@ -91,11 +91,9 @@ export default async (req, res) => {
       documentId = document.id;
       setCache('documentId', documentId);
     } else {
-      if (!flowId) {
-        document = await getDocument(organizationId, templateId, documentId);
-        console.log("Document Found: ", document);
-      }
-    }
+      document = await getDocument(organizationId, templateId, documentId);
+      console.log("Document Found: ", document);
+   }
 
     let flow;
     if (!flowId) {

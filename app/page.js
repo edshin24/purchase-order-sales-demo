@@ -87,17 +87,17 @@ export default function PurchaseOrder() {
     setSearchInput('');
   };
   
-  const resetFlowCache = async () => {
+  const resetCache = async () => {
     try {
-      const response = await fetch('/api/resetFlow', {
+      const response = await fetch('/api/resetCache', {
         method: 'POST',
       });
   
       const responseData = await response.json();
       setToastMessage(responseData.message);
     } catch (error) {
-      console.error("Error resetting flow:", error);
-      setToastMessage("Error resetting the flow.");
+      console.error("Error resetting cache:", error);
+      setToastMessage("Error resetting the cache.");
     }
   };
 
@@ -350,10 +350,10 @@ export default function PurchaseOrder() {
       <div className="flex justify-between mt-6">
         <button
           type="button"
-          onClick={resetFlowCache}
-          className="px-4 py-2 mr-4 border-2 border-red-500 text-red-500 hover:bg-red-100 rounded-md focus:outline-none focus:bg-red-100 focus:text-red-600"
+          onClick={resetCache}
+          className="mr-4 px-4 py-2 border border-blue-500 text-blue-500 bg-transparent rounded-md hover:bg-blue-100 hover:text-blue-600 focus:outline-none focus:bg-blue-100 focus:text-blue-600"
         >
-          Reset&nbsp;Flow
+          Reset&nbsp;Cache
         </button>
         <input 
           type="submit" 

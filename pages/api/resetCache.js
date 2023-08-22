@@ -6,7 +6,11 @@ export default (req, res) => {
     return;
   }
 
+  clearCache('organizationId');
+  clearCache('templateId');
+  clearCache('documentId');
   clearCache('flowId');
-  console.log("Flow ID after reset:", getCache('flowId'));
-  res.json({ message: "Reset Flow ID Successfully." });
+  clearCache('roleId');
+
+  res.json({ message: "Cache Reset." });
 };
