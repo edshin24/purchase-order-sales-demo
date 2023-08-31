@@ -98,6 +98,7 @@ export default async (req, res) => {
     let flow;
     if (!flowId) {
       flow = await createFlow(organizationId, templateId, document, orderData);
+      console.log("Flow: ", flow);
 
       flowId = flow.id;
       setCache('flowId', flowId);
