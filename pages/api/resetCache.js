@@ -8,6 +8,8 @@ export default (req, res) => {
 
   clearCache('organizationId');
   clearCache('templateId');
+  clearCache('versionId');
+  clearCache('published');
   clearCache('documentId');
   clearCache('flowId');
   clearCache('roleId');

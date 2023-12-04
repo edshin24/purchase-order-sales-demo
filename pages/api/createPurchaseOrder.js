@@ -1,7 +1,6 @@
 import {
   getCache,
   setCache,
-  clearCache
 } from '../../lib/cache';
 
 import {
@@ -9,13 +8,13 @@ import {
   createOrganization,
   getTemplate,
   createTemplate,
-  getDocuments,
+  getTemplateVersions,
+  publishTemplateVersion,
+  getVersionedDocuments,
   getDocument,
+  getDocuments,
   uploadDocument,
   createFlow,
-  getFlowDocuments,
-  getFlowDocument,
-  distributeTemplate,
   distributeFlow,
   getFlowLinks
 } from '../../lib/api';
@@ -23,15 +22,20 @@ import {
 export default async (req, res) => {
   const orderData = req.body;
   console.log("Form Data: ", orderData);
+  console.log("orderItems: ", orderData.orderItems);
 
   let organizationId = getCache('organizationId');
   let templateId = getCache('templateId');
+  let versionId = getCache('versionId');
+  let published = getCache('published');
   let documentId = getCache('documentId');
   let flowId = getCache('flowId');
   let roleId = getCache('roleId');
 
   console.log("organizationId: ", organizationId);
   console.log("templateId: ", templateId);
+  console.log("versionId: ", versionId);
+  console.log("published: ", published);
   console.log("documentId: ", documentId);
   console.log("flowId: ", flowId);
   console.log("roleId: ", roleId);
@@ -60,40 +64,57 @@ export default async (req, res) => {
       } else {
         template = await createTemplate(organizationId);
         console.log("Template created:", template);
+
+        template.template_version.id = versionId;
+        setCache('versionId', versionId);
       }
   
       templateId = template.id;
       setCache('templateId', templateId);
     }
 
+    if (!versionId) {
+      let templateVersion = await getTemplateVersions(organizationId, templateId);
+
+      if (templateVersion) {
+        console.log("Version found: ", templateVersion);
+
+        versionId = templateVersion[0].id;
+      }
+
+      if (templateVersion[0].status === 'PUBLISHED') {
+        published = true;
+        setCache('published', true);
+      }
+      else {
+        setCache('published', false);
+      }
+    }
+
     let document = null;
 
+    let versionedDocuments = await getVersionedDocuments(organizationId, templateId, versionId);
+    console.log("versionedDocuments: ", versionedDocuments);
+
     if (!documentId) {
-      const documents = await getDocuments(organizationId, templateId);
-      console.log("Documents: ", documents);
-
-      let purchaseOrderDoc;
-
-      if (documents) {
-        purchaseOrderDoc = documents.data.find(
-          documentEntry => documentEntry.name === "IT Purchase Order"
-        );
-      }
-
-      if (purchaseOrderDoc) {
-        document = await getDocument(organizationId, templateId, purchaseOrderDoc.id);
-        console.log("Document Found: ", document);
-      } else {
-        const newDocument = await uploadDocument(organizationId, templateId);
-        document = newDocument.data;
-        console.log("Document Uploaded:", document);
-      }
-      documentId = document.id;
-      setCache('documentId', documentId);
-    } else {
+      document = await getPurchaseOrderDocument(organizationId, templateId, versionId);
+    }
+    else {
       document = await getDocument(organizationId, templateId, documentId);
       console.log("Document Found: ", document);
-   }
+    }
+
+    if (!published) {
+      let publishedTemplateVersion = await publishTemplateVersion(
+        organizationId, templateId, versionId);
+
+      console.log("publishedTemplateVersion: ", publishedTemplateVersion);
+
+      console.log("Retrieving new documents.");
+      document = await getPurchaseOrderDocument(organizationId, templateId, versionId);
+
+      setCache('published', true);
+    }
 
     let flow;
     if (!flowId) {
@@ -125,21 +146,63 @@ export default async (req, res) => {
           url = distFlow.data.data[0].url;
           console.log("Assigned URL:", url);
         }
-      } else {
+      }
+      else {
         url = flowLink.url;
       }
     }
-    
+
     res.status(200).json(url);
-  } catch (error) {
+  }
+  catch (error) {
     if (error.response) {
         console.error("Error Data:", error.response.data);
         console.error("Error Status:", error.response.status);
         res.status(error.response.status).json({ error: error.response.data });
         console.error(`Error: ${error.message}\n${error.stack}`);
-    } else {
+        console.error(error);
+        console.error(error.response.data.errors);
+    }
+    else {
         console.error("Error Message:", error.message);
+        console.error(error);
         res.status(500).json({ error: error.message });
     }
   }
+};
+
+const getPurchaseOrderDocument = async (organizationId, templateId, versionId) => {
+  const documents = await getDocuments(organizationId, templateId);
+
+  let purchaseOrderDocumentsData;
+
+  if (documents) {
+    purchaseOrderDocumentsData = documents.data.find(
+      documentEntry => documentEntry.name === "IT Purchase Order"
+    );
+  }
+
+  let document = null;
+
+  let versionedDocuments = await getVersionedDocuments(organizationId, templateId, versionId)
+  console.log("getVersionedDocuments: ", versionedDocuments);
+
+  if (purchaseOrderDocumentsData) {
+    document = await getDocument(organizationId, templateId, purchaseOrderDocumentsData.id);
+    console.log("Document Found: ", document);
+
+    let products = document.fields.find(
+      fieldEntry => fieldEntry.name === "Products"
+    );
+    console.log("products: ", products);
+  }
+  else {
+    const newDocument = await uploadDocument(organizationId, templateId);
+    document = newDocument.data;
+    console.log("Document Uploaded:", document);
+  }
+
+  setCache('documentId', document.id);
+
+  return document;
 };
